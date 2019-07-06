@@ -10,15 +10,18 @@ import threading
 import six
 from six.moves import range
 import random
-from tensorpack.utils import (get_rng, logger, execute_only_once)
+from tensorpack.utils import (get_rng, logger)
 from tensorpack.utils.fs import get_dataset_path
 from tensorpack.utils.stats import StatCounter
 
 from tensorpack.RL.envbase import RLEnvironment, DiscreteActionSpace
 
-import pygame_soccer.soccer.soccer_environment as soccer_environment
-import pygame_soccer.soccer.soccer_renderer as soccer_renderer
-import pygame_soccer.util.file_util as file_util
+import pygame_rl.scenario.soccer_environment as soccer_environment
+import pygame_rl.scenario.soccer_renderer as soccer_renderer
+import pygame_rl.util.file_util as file_util
+#import pygame_soccer.soccer.soccer_environment as soccer_environment
+#import pygame_soccer.soccer.soccer_renderer as soccer_renderer
+#import pygame_soccer.util.file_util as file_util
 
 __all__ = ['SoccerPlayer', 'get_raw_env']
 
@@ -305,6 +308,7 @@ class SoccerPlayer(RLEnvironment):
                     for team_agent_index in range(self.env.options.team_size):
                         agent_index = self.env.get_agent_index(team_name, team_agent_index)
                         agent_action = self.env._get_ai_action(team_name, team_agent_index)
+                        print(team_name + self.env.state.get_agent_mode(agent_index))
                         actions[agent_index] = agent_action
                 player_index = self.env.get_agent_index(self.player_team_name, 0)
                 coop_index = self.env.get_agent_index(self.player_team_name, 1)
@@ -312,23 +316,9 @@ class SoccerPlayer(RLEnvironment):
                 actions[player_index] = self.env.actions[act]
                 if random.random() < 0.5:
                     actions[coop_index] = random.choice(self.env.actions)
-                ret = self.env.take_all_actions(actions)
-            else:
-                ret = self.env.take_action(self.env.actions[act])
+                ret = self.env.take_action(actions)
 
-            if self.mode[0] == 'OPPONENT_DYNAMIC':
-                choices = ['OFFENSIVE', 'DEFENSIVE']
-                if self.timestep % random.randint(4, 10) == 0:
-                    new_modes = [random.choice(choices) for i in range(self.team_size)]
-                    self._set_opponent_mode(new_modes)
-
-            if self.mode[0] == 'COOP_DYNAMIC':
-                choices = ['OFFENSIVE', 'DEFENSIVE']
-                if self.timestep % random.randint(4, 10) == 0:
-                    new_modes = [random.choice(choices) for i in range(self.team_size - 1)]
-                    self._set_collaborator_mode(new_modes)
-
-            if self.mode[0] == 'ALL_RANDOM':
+            elif self.mode[0] == 'ALL_RANDOM':
                 if self.team_size == 1:
                     player_index = self.env.get_agent_index(self.player_team_name, 0)
                     opponent_index = self.env.get_agent_index(self.computer_team_name, 0)
@@ -342,7 +332,35 @@ class SoccerPlayer(RLEnvironment):
                             actions[agent_index] = random.choice(self.env.actions)
                     player_index = self.env.get_agent_index(self.player_team_name, 0)
                     actions[player_index] = self.env.actions[act]
-                ret = self.env.take_all_actions(actions)
+                ret = self.env.take_action(actions)
+            # else:
+                # print(self.env.actions[act])
+                # ret = self.env.take_action(self.env.actions[act])
+
+            else:
+                if self.mode[0] == 'OPPONENT_DYNAMIC':
+                    choices = ['OFFENSIVE', 'DEFENSIVE']
+                    if self.timestep % random.randint(4, 10) == 0:
+                        new_modes = [random.choice(choices) for i in range(self.team_size)]
+                        self._set_opponent_mode(new_modes)
+
+                if self.mode[0] == 'COOP_DYNAMIC':
+                    choices = ['OFFENSIVE', 'DEFENSIVE']
+                    if self.timestep % random.randint(4, 10) == 0:
+                        new_modes = [random.choice(choices) for i in range(self.team_size - 1)]
+                        self._set_collaborator_mode(new_modes)
+
+                actions = {}
+                for team_name in self.env.team_names:
+                    for team_agent_index in range(self.env.options.team_size):
+                        agent_index = self.env.get_agent_index(team_name, team_agent_index)
+                        agent_action = self.env._get_ai_action(team_name, team_agent_index)
+                        # print(team_name + self.env.state.get_agent_mode(agent_index))
+                        actions[agent_index] = agent_action
+                player_index = self.env.get_agent_index(self.player_team_name, 0)
+                actions[player_index] = self.env.actions[act]
+                ret = self.env.take_action(actions)
+
             if k == 0:
                 self.last_info['agent_actions'] = self._get_computer_actions()
             r += ret.reward
